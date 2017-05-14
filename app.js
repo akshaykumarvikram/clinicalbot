@@ -7,6 +7,8 @@ var restify = require('restify');
 var request_promise = require('request-promise').defaults({ encoding: null });
 var request = require('request');
 var Promise = require('bluebird');
+var request = require("request");
+var cheerio = require("cheerio");
 
 // 
 var connector = new builder.ChatConnector();
@@ -17,12 +19,12 @@ var bot = new builder.UniversalBot(connector);
 
 bot.dialog('/',[
     function(session,args,next){
-        builder.Prompts.choice(session, 'Hi, I See that you are visiting an onclology center, there are several clinical trails on cancer, would you be intrested in participating in a clinical trial',['Yes','No'])
+        builder.Prompts.choice(session, 'Hi, I See that you are visiting an onclology center, there are several clinical trails on cancer, would you be intrested in participating in a clinical trial',['Yes','No'],{listStyle: builder.ListStyle.button})
     },
     function(session,results,next){
         console.log(results.response)
         if(results.response.entity == 'Yes'){
-            builder.Prompts.choice(session,'Great! There are three ways we can proceed, ',['Upload a picture of the diagnosis report','upload a pdf of the report','enter the info manually']);
+            builder.Prompts.choice(session,'Great! There are three ways we can proceed, ',['Upload a picture of the diagnosis report','upload a pdf of the report','enter the info manually'],{listStyle: builder.ListStyle.button});
             
         }
         else{
@@ -55,7 +57,7 @@ bot.dialog('/imageUpload',[
     },
     function(session,results,next){
         session.userData.age = results.response;
-        builder.Prompts.choice(session,'Please enter you gender',['Male','Female','Other']);
+        builder.Prompts.choice(session,'Please enter you gender',['Male','Female','Other'],{listStyle: builder.ListStyle.button});
     },
     function(session,results,next){
         session.userData.gender = results.response.entity;
@@ -87,9 +89,24 @@ bot.dialog('/imageUpload',[
 
                 readImageText(response, attachment.contentType, function (error, response, body) {
                     session.userData.diagonosisText = (extractText(body));
-                    var JSONobj = JSON.parse(extractDiagnosis(session.userData.diagonosisText))
+                    session.send(session.userData.diagonosisText)
+                    var JSONobj = (extractDiagnosis(session.userData.diagonosisText))
+                    session.userData.medicalCondition = 'Acute Myeloide Lucemia'
+                    session.send('I am sorry to hear that you are suffering from '+session.userData.medicalCondition);
+                    session.send('Here are some clinical trials you could be qualified for');
+                    getTrials('lung cancer', function(options) {
+                         //console.log(options)
+                        for (item in options){
+                            thisopt = options[item]
+                            if(item < 5){
+                            session.send((thisopt))}
+                            else {
+                                break
+                            }
+                        }
+                    })
+                   
                     
-                   // console.log(session.userData.diagonosisText['keywords'])
                 });
 
                 }).catch(function (err, reply) {
@@ -258,18 +275,62 @@ var extractDiagnosis = function _extractDiagnosis(textblob){
     }
   };
 
-  nlu.analyze(options, function(err, response) {
-    //console.log(response);
+ console.log(nlu.analyze(options, function(err, response) {
+   // console.log(response);
     if (err) {
       console.log(err);
       return;
     }
-    var JSONbody = JSON.parse(response)
-    console.log(JSONbody)
+    //var JSONbody = JSON.parse(response)
+    //console.log(response)
     return(response)
-  });
-
+  }));
 }
+base_url = "https://clinicaltrials.gov"
+
+var request = require("request");
+var cheerio = require("cheerio");
+
+function splitJoin(term) {
+  var words = term.split(" ");
+  return words.join("+")
+}
+
+function getTrials(term, callback) {
+  var results = [];
+  var url = "https://clinicaltrials.gov/ct2/results?term=" + splitJoin(term) + "&recr=Recruiting&cntry1=NA%3AUS&state1=NA%3AUS%3ANY";
+
+  request(url, function (error, response, body) {
+    if (!error) {
+      var $ = cheerio.load(body);
+      $('tr td a').each(function() {
+          hr = $(this).attr('href');
+          link = base_url + hr
+          results.push(link.split("?")[0])
+      });
+      callback(results)
+    } else {
+      console.log("We’ve encountered an error: " + error);
+    }
+  });
+}
+
+function getDescription(url) {
+  request(url, function (error, response, body) {
+    if (!error) {
+      var $ = cheerio.load(body);
+      desc = $('div.body3').text();
+      console.log(desc)
+    } else {
+      console.log("We’ve encountered an error: " + error);
+    }
+  });
+}
+
+
+
+
+
 // Setup Restify Server
 var server = restify.createServer();
 server.listen(process.env.port || process.env.PORT || 3978, function () {
