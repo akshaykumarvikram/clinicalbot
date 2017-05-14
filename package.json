@@ -1,0 +1,15 @@
+{
+  "name": "clinical_trail_bot",
+  "version": "1.0.0",
+  "description": "Bot to link patients to clinical trails",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Akshay kumar Vikram",
+  "license": "ISC",
+  "dependencies": {
+    "botbuilder": "^3.8.1",
+    "sync-request": "^4.0.3"
+  }
+}
